@@ -1,1 +1,1 @@
-- Mention the CAP (Consistency, Availability and Performance trade off)
+# In Memory Database
