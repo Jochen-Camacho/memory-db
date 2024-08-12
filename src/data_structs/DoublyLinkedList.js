@@ -1,8 +1,18 @@
+const ListNode = require("./ListNode");
+
 class DoublyLinkedList {
+  /**
+   * Initialize the list's head and tail to null.
+   */
   constructor() {
     this.head = this.tail = null;
   }
 
+  /**
+   * Add a node to the head of the list
+   *
+   * @param {ListNode} node
+   */
   addNodeToHead = (node) => {
     if (!this.head) {
       this.tail = this.head = node;
@@ -13,6 +23,11 @@ class DoublyLinkedList {
     }
   };
 
+  /**
+   * Remove the Node from the tail
+   *
+   * @returns {ListNode}
+   */
   removeNodeFromTail = () => {
     if (!this.tail) return null;
 
@@ -28,6 +43,12 @@ class DoublyLinkedList {
     return removedNode;
   };
 
+  /**
+   * Remove a particular node from any where in the list.
+   *
+   * @param {ListNode} node - Node to be removed
+   * @returns {ListNode}
+   */
   removeNode = (node) => {
     if (node === this.head) {
       this.head = this.head.next;

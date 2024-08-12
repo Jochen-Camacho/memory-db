@@ -2,12 +2,25 @@ const DoublyLinkedList = require("./DoublyLinkedList");
 const ListNode = require("./ListNode");
 
 class LRUCache {
+  /**
+   * Creates a Cache DS with a Map for Retrieval and Storage,
+   * a Doubly Linked List for managing recently used items and
+   * a capacity to limit the size of the cache.
+   *
+   * @param {number} capacity - Number of nodes that can be held in cache
+   */
   constructor(capacity = 100) {
     this.hashMap = new Map();
     this.doublyLinkedList = new DoublyLinkedList();
     this.capacity = capacity;
   }
 
+  /**
+   * Retrieves the value of the key entered.
+   *
+   * @param {string} key - Key of item being retrieved
+   * @returns {Object}
+   */
   get = (key) => {
     const node = this.hashMap.get(key);
     if (node) {
@@ -20,6 +33,12 @@ class LRUCache {
     }
   };
 
+  /**
+   * Set a new value to the cache
+   *
+   * @param {string} key - Key of value to be set
+   * @param {Object} value - Value to be set
+   */
   set = (key, value) => {
     // If the node exists remove it from the doubly linked list
     if (this.hashMap.has(key)) {
@@ -41,6 +60,12 @@ class LRUCache {
     }
   };
 
+  /**
+   * Remove a value from the cache
+   *
+   * @param {string} key - Key of value to be removed
+   * @returns {Object}
+   */
   delete = (key) => {
     if (!this.hashMap.has(key)) {
       return false;

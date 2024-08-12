@@ -1,11 +1,4 @@
-class Node {
-  constructor(leaf = false) {
-    this.keys = [];
-    this.values = [];
-    this.children = [];
-    this.leaf = leaf;
-  }
-}
+const { compareKeys, Node } = require("../util/BTreeUtil");
 
 /*
 Terms:
@@ -19,11 +12,23 @@ Properties:
 - A node may contain at minimum t - 1 keys (excluding root)
 */
 class BTree {
+  /**
+   * Initialize the root and t of the B-Tree
+   *
+   * @param {number} t
+   */
   constructor(t = 3) {
     this.root = new Node(true);
     this.t = t;
   }
 
+  /**
+   * Search though the B-Tree looking for the key
+   *
+   * @param {string} key - Key of the value we are searching for
+   * @param {Node} node - Node to Start the search from
+   * @returns {Object}
+   */
   search = (key, node = this.root) => {
     // Start a counter at 0
     let i = 0;
@@ -31,11 +36,11 @@ class BTree {
     // Go through the children of the node until we are at the
     // end or if we are less than the current key which would indicate
     // that the value we are looking for, is in the current child node index
-    while (i < node.keys.length && key.localCompare() > node.keys[i]) i++;
+    while (i < node.keys.length && compareKeys(key, node.keys[i]) > 0) i++;
 
     // if we find it return the node and the index of its position in the keys
     // We also check if its less then the length meaning if it reached the end of the keys
-    if (i < node.keys.length && key === node.keys[i])
+    if (i < node.keys.length && compareKeys(key, node.keys[i]) === 0)
       return { key: node.keys[i], value: node.values[i] };
     // Return null if it is a leaf because there is no room for a recussive call
     else if (node.leaf) return null;
@@ -44,6 +49,13 @@ class BTree {
     else return this.search(key, node.children[i]);
   };
 
+  /**
+   * Splits a node into 2 nodes, sending its median to the parent node
+   * and appending a new child to the parent
+   *
+   * @param {number} fullNodeIdx - Position of the full node
+   * @param {Node} parentNode - Parent of the full node
+   */
   splitChild = (fullNodeIdx, parentNode) => {
     const t = this.t;
 
@@ -78,6 +90,13 @@ class BTree {
     }
   };
 
+  /**
+   * Insert a new item to the B-Tree at its key. Handles
+   * checking if the root needs to be split before inserting
+   *
+   * @param {string} newKey - Identifier of an item stored in the B-Tree
+   * @param {Object} newValue - Item to be stored
+   */
   insert = (newKey, newValue) => {
     const t = this.t;
     const root = this.root;
@@ -96,6 +115,14 @@ class BTree {
     }
   };
 
+  /**
+   * Conducts the actual process of setting a new key and value
+   * into a node.
+   *
+   * @param {Node} node - Node to insert the item
+   * @param {string} key - Identifier
+   * @param {Object} value - Item to be inserted
+   */
   insertNonFull = (node, key, value) => {
     const t = this.t;
     let i = node.keys.length - 1;
@@ -105,7 +132,7 @@ class BTree {
       // the key is larger than the current key, shifting each key up.
       // Then insert it after that key
       node.keys.push(null);
-      while (i >= 0 && key < node.keys[i]) {
+      while (i >= 0 && compareKeys(key, node.keys[i]) < 0) {
         node.keys[i + 1] = node.keys[i];
         node.values[i + 1] = node.values[i];
         i--;
@@ -117,14 +144,14 @@ class BTree {
     } else {
       // First iterate through the keys until we find the position of
       // the child node where the key should be
-      while (i >= 0 && key < node.keys[i]) i--;
+      while (i >= 0 && compareKeys(key, node.keys[i]) < 0) i--;
       i++;
 
       // If the child node is full, split it then check if the key is
       // in the left half of the parent or the right
       if (node.children[i].keys.length === t * 2 - 1) {
         this.splitChild(i, node);
-        if (key > node.keys[i]) i++;
+        if (compareKeys(key, node.keys[i]) < 0) i++;
       }
 
       // Recursively call the function again on the correct child
@@ -132,24 +159,37 @@ class BTree {
     }
   };
 
+  /**
+   * Remove a node from the B-Tree employing various other
+   * helper delete functions based on the delete scenario.
+   *
+   * @param {string} key - Identifier
+   * @param {Node} node - Starting Point
+   * @returns {Node}
+   *
+   */
   delete = (key, node = this.root) => {
     const t = this.t;
     let i = 0;
+    key = key.toString();
     // Find the location of the node to remove the key
-    while (i < node.keys.length && key > node.keys[i]) i++;
 
+    // console.log("Before loop:", node.keys, key);
+    while (i < node.keys.length && compareKeys(key, node.keys[i]) > 0) {
+      i++;
+    }
+    // console.log("After loop:", node.keys[i], i, node);
     // If the node is a leaf and the key is found,
     // remove the key from the leaf node
 
     if (node.leaf) {
-      if (i < node.keys.length && node.keys[i] === key) {
+      if (i < node.keys.length && compareKeys(key, node.keys[i]) === 0) {
         node.keys.splice(i, 1);
         node.values.splice(i, 1);
       }
       return;
     }
-
-    if (i < node.keys.length && node.keys[i] === key) {
+    if (i < node.keys.length && compareKeys(key, node.keys[i]) === 0) {
       return this.deleteInternalNode(node, key, i);
     } else if (node.children[i].keys.length >= t) {
       console.log("I am here.", `Going to`, node.children[i]);
@@ -174,12 +214,21 @@ class BTree {
     }
   };
 
+  /**
+   * Remove a node if it is a leaf, has a valid predecessor or successor
+   * or if it has neither.
+   *
+   * @param {Node} node - Node to preform deletion on
+   * @param {string} key - Identifier
+   * @param {number} i - Index used to view values of the keys and children of the node
+   * @returns {Node}
+   */
   deleteInternalNode = (node, key, i) => {
     const t = this.t;
 
     // Base case if we find a leaf node
     if (node.leaf) {
-      if (node.keys[i] === key)
+      if (compareKeys(key, node.keys[i]) === 0)
         console.log(node.keys.splice(i, 1), node.values.splice(i, 1));
       return;
     }
@@ -205,6 +254,12 @@ class BTree {
     }
   };
 
+  /**
+   * Move up the predecessor key to the parent
+   *
+   * @param {Node} node - Node where the predecessor is located
+   * @returns {Node}
+   */
   deletePredecessor = (node) => {
     console.log("Moving Up Predecessor");
     // If it is a leaf remove the largest key which is at the end of
@@ -212,12 +267,19 @@ class BTree {
     if (node.leaf) return { key: node.keys.pop(), value: node.values.pop() };
 
     const n = node.keys.length - 1;
-    if (node.children[n].keys >= this.t) this.deleteSibling(node, n + 1, n);
+    if (node.children[n].keys.length >= this.t)
+      this.deleteSibling(node, n + 1, n);
     else this.deleteMerge(node, n, n + 1);
 
-    this.deletePredecessor(node.children[n]);
+    return this.deletePredecessor(node.children[n]);
   };
 
+  /**
+   * Move up the sucessor key to the parent
+   *
+   * @param {Node} node - Node where the successor is located
+   * @returns {Node}
+   */
   deleteSuccessor = (node) => {
     console.log("Moving Up Successor");
     // If it is a leaf remove the smallest key which is at the start of
@@ -225,10 +287,20 @@ class BTree {
     if (node.leaf)
       return { key: node.keys.shift(), value: node.values.shift() };
 
-    if (node.children[1].keys >= this.t) this.deleteSibling(node, 0, 1);
-    else this.deleteMerge(x, 0, 1);
+    if (node.children[1].keys.length >= this.t) this.deleteSibling(node, 0, 1);
+    else this.deleteMerge(node, 0, 1);
+
+    return this.deleteSuccessor(node.children[0]);
   };
 
+  /**
+   * Merge two child nodes together when there is no valid predecessor
+   * or successor to move up on either.
+   *
+   * @param {Node} node - Parent node of nodes to be merged
+   * @param {number} i - Index of first node
+   * @param {number} j - Index of second node
+   */
   deleteMerge = (node, i, j) => {
     // Set our new child node to the first child of the node passed in
     const childNode = node.children[i];
@@ -275,7 +347,7 @@ class BTree {
           leftSideNode.children.push(childNode.children[i]);
       }
       if (leftSideNode.children.length > 0)
-        leftSideNode.childNode.push(childNode.children.pop());
+        leftSideNode.children.push(childNode.children.pop());
       newNode = leftSideNode;
       node.keys.splice(j, 1);
       node.values.splice(j, 1);
@@ -286,6 +358,13 @@ class BTree {
     if (node === this.root && node.keys.length === 0) this.root = newNode;
   };
 
+  /**
+   *
+   *
+   * @param {Node} node - Parent node of the siblings
+   * @param {number} i - Index of first node
+   * @param {number} j - Index of second node
+   */
   deleteSibling = (node, i, j) => {
     const childNode = node.children[i];
 
@@ -312,6 +391,12 @@ class BTree {
     }
   };
 
+  /**
+   * Print the entire B-Tree nodes.
+   *
+   * @param {Node} node - Starting point of the traverse
+   * @param {number} level - Level of the search
+   */
   printTree = (node = this.root, level = 0) => {
     console.log(`Level ${level}`);
 
@@ -327,6 +412,13 @@ class BTree {
       for (const i of node.children) this.printTree(i, level);
   };
 
+  /**
+   * Traverse the entire B-Tree returning an array of the Nodes.
+   *
+   * @param {Node} node - Starting point of the traverse
+   * @param {number} level - Level of the search
+   * @returns {Node[]}
+   */
   traverseTree = (node = this.root, level = 0) => {
     const results = [];
 
@@ -343,13 +435,25 @@ class BTree {
     return results;
   };
 
+  /**
+   * Find a specific set of keys within a given range.
+   *
+   * @param {string} low - Lower Boundary in the range
+   * @param {*} high - Higher Boundary in the range
+   * @param {*} node - Starting point for the search
+   * @returns
+   */
   findInRange = (low, high, node = this.root) => {
     const results = [];
 
     const traverse = (low, high, node) => {
       let i = 0;
       for (i = 0; i < node.keys.length; i++) {
-        if (node.keys[i] <= high && node.keys[i] >= low) {
+        // console.log(node.keys[i], node.values[i], low, high);
+        if (
+          compareKeys(node.keys[i], high) <= 0 &&
+          compareKeys(node.keys[i], low) >= 0
+        ) {
           if (node.children.length > 0) {
             traverse(low, high, node.children[i]);
           }
@@ -364,47 +468,50 @@ class BTree {
     return results;
   };
 
-  deleteExample = () => {
+  /**
+   * Debug Function for testing other functions
+   */
+  debug = () => {
     const firstLeaf = new Node(true);
-    firstLeaf.keys = [1, 9];
+    firstLeaf.keys = ["1", "9"];
     firstLeaf.values = [1, 9];
 
     const secondLeaf = new Node(true);
-    secondLeaf.keys = [17, 19, 21];
+    secondLeaf.keys = ["17", "19", "21"];
     secondLeaf.values = [17, 19, 21];
 
     const thirdLeaf = new Node(true);
-    thirdLeaf.keys = [23, 25, 27];
+    thirdLeaf.keys = ["23", "25", "27"];
     thirdLeaf.values = [23, 25, 27];
 
     const fourthLeaf = new Node(true);
-    fourthLeaf.keys = [31, 32, 39];
+    fourthLeaf.keys = ["31", "32", "39"];
     fourthLeaf.values = [31, 32, 39];
 
     const fifthLeaf = new Node(true);
-    fifthLeaf.keys = [41, 47, 50];
+    fifthLeaf.keys = ["41", "47", "50"];
     fifthLeaf.values = [41, 47, 50];
 
     const sixthLeaf = new Node(true);
-    sixthLeaf.keys = [56, 60];
+    sixthLeaf.keys = ["56", "60"];
     sixthLeaf.values = [56, 60];
 
     const seventhLeaf = new Node(true);
-    seventhLeaf.keys = [72, 90];
+    seventhLeaf.keys = ["72", "90"];
     seventhLeaf.values = [72, 90];
 
     const rootLeftChild = new Node();
-    rootLeftChild.keys = [15, 22, 30];
+    rootLeftChild.keys = ["15", "22", "30"];
     rootLeftChild.values = [15, 22, 30];
     rootLeftChild.children.push(firstLeaf, secondLeaf, thirdLeaf, fourthLeaf);
 
     const rootRightChild = new Node();
-    rootRightChild.keys = [55, 63];
+    rootRightChild.keys = ["55", "63"];
     rootRightChild.values = [55, 63];
     rootRightChild.children.push(fifthLeaf, sixthLeaf, seventhLeaf);
 
     const root = new Node();
-    root.keys = [40];
+    root.keys = ["40"];
     root.values = [40];
     root.children.push(rootLeftChild, rootRightChild);
 
@@ -434,14 +541,11 @@ class BTree {
     B.printTree(B.root);
 
     console.log("\n--- Case 3a: DELETED 9 ---\n");
-    B.delete(9);
+    B.delete("9");
     B.printTree(B.root);
 
     console.log(B.findInRange(56, 72));
   };
 }
-
-// const b = new BTree();
-// b.deleteExample();
 
 module.exports = BTree;
